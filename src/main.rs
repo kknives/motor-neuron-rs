@@ -23,6 +23,44 @@ use bsp::hal::{
     watchdog::Watchdog,
 };
 
+// Send help please, I can't fix this borrow
+struct UARTPIOBuilder<P: PIOExt>(bsp::hal::pio::PIOBuilder<P>);
+impl<P: PIOExt> UARTPIOBuilder<P> {
+    fn setup_pio_uart(
+        clock_freq: u32,
+        installed: bsp::hal::pio::InstalledProgram<P>,
+        pin: u8,
+    ) -> bsp::hal::pio::PIOBuilder<P> {
+        bsp::hal::pio::PIOBuilder::from_program(installed)
+            .set_pins(pin, 1)
+            .out_pins(pin, 1)
+            .autopull(false)
+            .out_shift_direction(bsp::hal::pio::ShiftDirection::Right)
+            .side_set_pin_base(pin)
+            .clock_divisor(clock_freq as f32 / (8f32 * 9600f32))
+            .buffers(bsp::hal::pio::Buffers::OnlyTx)
+    }
+}
+fn setup_pio_uart<Pio: PIOExt, SM: bsp::hal::pio::StateMachineIndex>(
+    clock_freq: u32,
+    installed: bsp::hal::pio::InstalledProgram<Pio>,
+    sm: UninitStateMachine<(Pio, SM)>,
+    pin: u8,
+) -> bsp::hal::pio::Tx<(Pio, SM)> {
+    let (mut working_sm, _, mut tx) = bsp::hal::pio::PIOBuilder::from_program(installed)
+        .set_pins(pin, 1)
+        .out_pins(pin, 1)
+        .autopull(false)
+        .out_shift_direction(bsp::hal::pio::ShiftDirection::Right)
+        .side_set_pin_base(pin)
+        .clock_divisor(clock_freq as f32 / (8f32 * 9600f32))
+        // .clock_divisor_fixed_point(1, 160) // 125 MHz / (8*9600) in fixed point
+        .buffers(bsp::hal::pio::Buffers::OnlyTx)
+        .build(sm);
+    working_sm.set_pindirs([(pin, bsp::hal::pio::PinDir::Output)]);
+    working_sm.start();
+    tx
+}
 #[entry]
 fn main() -> ! {
     info!("Program start");
