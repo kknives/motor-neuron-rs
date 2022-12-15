@@ -4,7 +4,10 @@
 #![no_std]
 #![no_main]
 
-use bsp::{entry, hal::pio::UninitStateMachine, pac::pio0::SM};
+use bsp::{
+    entry,
+    hal::pio::{StateMachine, UninitStateMachine},
+};
 use defmt::*;
 use defmt_rtt as _;
 use panic_probe as _;
@@ -13,7 +16,6 @@ use pio_proc::pio_file;
 // Provide an alias for our BSP so we can switch targets quickly.
 // Uncomment the BSP you included in Cargo.toml, the rest of the code does not need to change.
 use rp_pico as bsp;
-// use sparkfun_pro_micro_rp2040 as bsp;
 
 use bsp::hal::{
     clocks::{init_clocks_and_plls, Clock},
@@ -23,7 +25,7 @@ use bsp::hal::{
     watchdog::Watchdog,
 };
 
-// Send help please, I can't fix this borrow
+// Send help please
 struct UARTPIOBuilder<P: PIOExt>(bsp::hal::pio::PIOBuilder<P>);
 impl<P: PIOExt> UARTPIOBuilder<P> {
     fn setup_pio_uart(
@@ -40,26 +42,6 @@ impl<P: PIOExt> UARTPIOBuilder<P> {
             .clock_divisor(clock_freq as f32 / (8f32 * 9600f32))
             .buffers(bsp::hal::pio::Buffers::OnlyTx)
     }
-}
-fn setup_pio_uart<Pio: PIOExt, SM: bsp::hal::pio::StateMachineIndex>(
-    clock_freq: u32,
-    installed: bsp::hal::pio::InstalledProgram<Pio>,
-    sm: UninitStateMachine<(Pio, SM)>,
-    pin: u8,
-) -> bsp::hal::pio::Tx<(Pio, SM)> {
-    let (mut working_sm, _, mut tx) = bsp::hal::pio::PIOBuilder::from_program(installed)
-        .set_pins(pin, 1)
-        .out_pins(pin, 1)
-        .autopull(false)
-        .out_shift_direction(bsp::hal::pio::ShiftDirection::Right)
-        .side_set_pin_base(pin)
-        .clock_divisor(clock_freq as f32 / (8f32 * 9600f32))
-        // .clock_divisor_fixed_point(1, 160) // 125 MHz / (8*9600) in fixed point
-        .buffers(bsp::hal::pio::Buffers::OnlyTx)
-        .build(sm);
-    working_sm.set_pindirs([(pin, bsp::hal::pio::PinDir::Output)]);
-    working_sm.start();
-    tx
 }
 #[entry]
 fn main() -> ! {
