@@ -83,38 +83,71 @@ fn main() -> ! {
         pins.gpio4.into_mode::<bsp::hal::gpio::FunctionPio1>(),
         pins.gpio5.into_mode::<bsp::hal::gpio::FunctionPio1>(),
     );
+    // Setup UARTs on first PIO segment
     let pio_program = pio_proc::pio_file!("./src/uart_tx.pio", select_program("uart_tx"));
+    let (mut pio0, sm0, sm1, sm2, sm3) = pac.PIO0.split(&mut pac.RESETS);
+    let (mut working_sm, _, mut tx0) = UARTPIOBuilder::setup_pio_uart(
+        clocks.system_clock.freq().to_Hz(),
+        pio0.install(&pio_program.program).unwrap(),
+        uart_pins[0],
+    )
+    .build(sm0);
+    working_sm.set_pindirs([(uart_pins[0], bsp::hal::pio::PinDir::Output)]);
+    working_sm.start();
 
-    let (mut pio, sm0, sm1, sm2, sm3) = pac.PIO0.split(&mut pac.RESETS);
-    // let pio0sm: [UninitStateMachine<SM: ValidStateMachine>; 4] = [sm0, sm1, sm2, sm3];
-    let installed = pio.install(&pio_program.program).unwrap();
+    let (mut working_sm, _, mut tx1) = UARTPIOBuilder::setup_pio_uart(
+        clocks.system_clock.freq().to_Hz(),
+        pio0.install(&pio_program.program).unwrap(),
+        uart_pins[1],
+    )
+    .build(sm1);
+    working_sm.set_pindirs([(uart_pins[1], bsp::hal::pio::PinDir::Output)]);
+    working_sm.start();
 
-    // for (i, smi) in uart_pins.into_iter().take(4).zip(pio0sm.into_iter()) {
-    //     let (mut sm, _, tx) = bsp::hal::pio::PIOBuilder::from_program(installed)
-    //         .set_pins(i, 1)
-    //         .out_shift_direction(bsp::hal::pio::ShiftDirection::Right)
-    //         .side_set_pin_base(i)
-    //         .clock_divisor_fixed_point(int, frac)
-    //         .build(smi);
-    //     sm.set_pindirs([(i, bsp::hal::pio::PinDir::Output)]);
-    //     sm.start();
-    // }
-    let (mut sm, _, mut tx) = bsp::hal::pio::PIOBuilder::from_program(installed)
-        .set_pins(3, 1)
-        .out_pins(3, 1)
-        .autopull(false)
-        .out_shift_direction(bsp::hal::pio::ShiftDirection::Right)
-        .side_set_pin_base(3)
-        .clock_divisor(clocks.system_clock.freq().to_Hz() as f32 / (8f32 * 9600f32))
-        // .clock_divisor_fixed_point(1, 160) // 125 MHz / (8*9600) in fixed point
-        .buffers(bsp::hal::pio::Buffers::OnlyTx)
-        .build(sm0);
+    let (mut working_sm, _, mut tx2) = UARTPIOBuilder::setup_pio_uart(
+        clocks.system_clock.freq().to_Hz(),
+        pio0.install(&pio_program.program).unwrap(),
+        uart_pins[2],
+    )
+    .build(sm2);
+    working_sm.set_pindirs([(uart_pins[2], bsp::hal::pio::PinDir::Output)]);
+    working_sm.start();
 
-    sm.set_pindirs([(3, bsp::hal::pio::PinDir::Output)]);
-    sm.start();
+    let (mut working_sm, _, mut tx3) = UARTPIOBuilder::setup_pio_uart(
+        clocks.system_clock.freq().to_Hz(),
+        pio0.install(&pio_program.program).unwrap(),
+        uart_pins[3],
+    )
+    .build(sm3);
+    working_sm.set_pindirs([(uart_pins[3], bsp::hal::pio::PinDir::Output)]);
+    working_sm.start();
 
+    // Setup UART on the other PIO block, only using 2 state machines this time
+    let (mut pio1, sm0, sm1, _, _) = pac.PIO1.split(&mut pac.RESETS);
+    let (mut working_sm, _, mut tx4) = UARTPIOBuilder::setup_pio_uart(
+        clocks.system_clock.freq().to_Hz(),
+        pio1.install(&pio_program.program).unwrap(),
+        uart_pins[4],
+    )
+    .build(sm0);
+    working_sm.set_pindirs([(uart_pins[4], bsp::hal::pio::PinDir::Output)]);
+    working_sm.start();
+
+    let (mut working_sm, _, mut tx5) = UARTPIOBuilder::setup_pio_uart(
+        clocks.system_clock.freq().to_Hz(),
+        pio1.install(&pio_program.program).unwrap(),
+        uart_pins[5],
+    )
+    .build(sm1);
+    working_sm.set_pindirs([(uart_pins[5], bsp::hal::pio::PinDir::Output)]);
+    working_sm.start();
     loop {
-        tx.write(0x31);
+        tx0.write(0x31);
+        tx1.write(0x31);
+        tx2.write(0x31);
+        tx3.write(0x31);
+        tx4.write(0x31);
+        tx5.write(0x31);
         delay.delay_ms(100);
         // cortex_m::asm::wfi();
     }
