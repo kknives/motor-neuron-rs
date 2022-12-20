@@ -142,14 +142,77 @@ fn main() -> ! {
     .build(sm1);
     working_sm.set_pindirs([(uart_pins[5], bsp::hal::pio::PinDir::Output)]);
     working_sm.start();
+
+    // Setup USB serial
+    let usb_bus = UsbBusAllocator::new(bsp::hal::usb::UsbBus::new(
+        pac.USBCTRL_REGS,
+        pac.USBCTRL_DPRAM,
+        clocks.usb_clock,
+        true,
+        &mut pac.RESETS,
+    ));
+
+    // Set up the USB Communications Class Device driver
+    let mut serial = SerialPort::new(&usb_bus);
+
+    // Create a USB device with Raspberry Pi Vendor ID and CDC UART Pid
+    let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x2E8A, 0x000A))
+        .manufacturer("Team Rudra")
+        .product("R23 Motor Neuron")
+        .serial_number("001")
+        .device_class(2) // from: https://www.usb.org/defined-class-codes
+        .build();
+    let timer = bsp::hal::Timer::new(pac.TIMER, &mut pac.RESETS);
+    let mut said_hello = false;
     loop {
+        if !said_hello && timer.get_counter().ticks() >= 2_000_000 {
+            said_hello = true;
+            let _ = serial.write(b"Hello, World!\r\n");
+
+            let time = timer.get_counter().ticks();
+            let mut text: String<64> = String::new();
+            writeln!(&mut text, "Current timer ticks: {}", time).unwrap();
+
+            // This only works reliably because the number of bytes written to
+            // the serial port is smaller than the buffers available to the USB
+            // peripheral. In general, the return value should be handled, so that
+            // bytes not transferred yet don't get lost.
+            let _ = serial.write(text.as_bytes());
+        }
+        if usb_dev.poll(&mut [&mut serial]) {
+            let mut buf = [0u8; 64];
+            match serial.read(&mut buf) {
+                Err(_e) => {
+                    // Do nothing
+                }
+                Ok(0) => {
+                    // Do nothing
+                }
+                Ok(count) => {
+                    // Convert to upper case
+                    buf.iter_mut().take(count).for_each(|b| {
+                        b.make_ascii_uppercase();
+                    });
+                    // Send back to the host
+                    let mut wr_ptr = &buf[..count];
+                    while !wr_ptr.is_empty() {
+                        match serial.write(wr_ptr) {
+                            Ok(len) => wr_ptr = &wr_ptr[len..],
+                            // On error, just drop unwritten data.
+                            // One possible error is Err(WouldBlock), meaning the USB
+                            // write buffer is full.
+                            Err(_) => break,
+                        };
+                    }
+                }
+            }
+        }
         tx0.write(0x31);
         tx1.write(0x31);
         tx2.write(0x31);
         tx3.write(0x31);
         tx4.write(0x31);
         tx5.write(0x31);
-        delay.delay_ms(100);
         // cortex_m::asm::wfi();
     }
 }
