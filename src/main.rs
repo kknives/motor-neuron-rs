@@ -4,15 +4,16 @@
 #![no_std]
 #![no_main]
 
-use bsp::{
-    entry,
-    hal::pio::{StateMachine, UninitStateMachine},
-};
+use bsp::entry;
 use defmt::*;
 use defmt_rtt as _;
-use panic_probe as _;
+use panic_halt as _;
 
+use core::fmt::Write;
+use heapless::String;
 use pio_proc::pio_file;
+use usb_device::{class_prelude::*, prelude::*};
+use usbd_serial::SerialPort;
 // Provide an alias for our BSP so we can switch targets quickly.
 // Uncomment the BSP you included in Cargo.toml, the rest of the code does not need to change.
 use rp_pico as bsp;
