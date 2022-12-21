@@ -20,8 +20,10 @@ heapless = "0.7.9"
 rp-pico = "0.6"
 pio-proc = "0.2.1"
 pio = "0.2.0"
-cobs-rs = "1.1"
 pwm-pca9685 = "0.3"
+postcard = "1.0.0"
+
+serde = { version = "1.0.*", default-features = false }
 
 # but you can use any BSP. Uncomment this to use the pro_micro_rp2040 BSP instead
 # sparkfun-pro-micro-rp2040 = "0.3"
