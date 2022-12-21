@@ -14,8 +14,11 @@ use core::fmt::Write;
 use cortex_m::interrupt::Mutex;
 use heapless::String;
 use pio_proc::pio_file;
+use embedded_hal::blocking::i2c::{Write as I2CWrite, WriteRead as I2CWriteRead};
+use pwm_pca9685::Pca9685;
+use pwm_pca9685 as pca9685;
 use postcard::{from_bytes, to_slice};
-use fugit::{Duration, ExtU32};
+use fugit::{ExtU32, RateExtU32};
 use rotary_encoder_embedded::{standard::StandardMode, RotaryEncoder, Direction};
 use serde::{Deserialize, Serialize};
 use usb_device::{class_prelude::*, prelude::*};
@@ -64,7 +67,7 @@ impl<P: PIOExt> UARTPIOBuilder<P> {
     }
 }
 impl Operation {
-    fn handle_operation<'a, P0: PIOExt, P1: PIOExt, B: usb_device::bus::UsbBus>(
+    fn handle_operation<'a, P0: PIOExt, P1: PIOExt, B: usb_device::bus::UsbBus, E: core::fmt::Debug, I: I2CWrite<Error = E> + I2CWriteRead<Error = E>>(
         self,
         usb_serial: &mut SerialPort<'a, B>,
         sabertooth0: &mut Tx<(P0, SM0)>,
@@ -72,6 +75,7 @@ impl Operation {
         sabertooth2: &mut Tx<(P0, SM2)>,
         sabertooth3: &mut Tx<(P0, SM3)>,
         smartelex: &mut Tx<(P1, SM0)>,
+        pwm: &mut Pca9685<I>,
     ) {
         match self {
             Operation::SabertoothWrite(tx_id, value) => {
@@ -94,7 +98,7 @@ impl Operation {
                 }
             }
             Operation::SmartelexWrite(tx_id, value) => {
-                if let tx_id = 4 {
+                if tx_id == 4 {
                     value.iter().for_each(|v| {
                         let _ = smartelex.write(*v as u32);
                     });
@@ -108,6 +112,9 @@ impl Operation {
                         let _ = usb_serial.write(&v.to_le_bytes());
                     });
                 });
+            }
+            Operation::PwmWrite(channel, value) => {
+                pwm.set_channel_on_off(pca9685::Channel::C0, 0, value).unwrap();
             }
             _ => {
                 // Do nothing
@@ -157,6 +164,22 @@ fn main() -> ! {
         sio.gpio_bank0,
         &mut pac.RESETS,
     );
+
+    // gpio6 and gpio7 are i2c pins
+    let sda_pin = pins.gpio6.into_mode::<gpio::FunctionI2C>();
+    let scl_pin = pins.gpio7.into_mode::<gpio::FunctionI2C>();
+
+    let i2c = bsp::hal::I2C::i2c1(
+        pac.I2C1,
+        sda_pin, scl_pin,
+        400_u32.kHz(),
+        &mut pac.RESETS,
+        &clocks.peripheral_clock,
+    );
+    let mut pwm = Pca9685::new(i2c, pca9685::Address::default()).unwrap();
+    pwm.set_prescale(100).unwrap();
+    pwm.enable().unwrap();
+    pwm.set_channel_full_off(pca9685::Channel::All).unwrap();
 
     // Pins 7, 11, 12, 14, 15, 16, 17, 19, 20, 21 are encoder inputs
     let pin_d7 = pins.gpio5.into_pull_up_input();
@@ -284,7 +307,7 @@ fn main() -> ! {
                 }
                 Ok(count) => {
                     let op: Operation = from_bytes(&buf[0..count]).unwrap();
-                    op.handle_operation(&mut serial, &mut tx0, &mut tx1, &mut tx2, &mut tx3, &mut tx4);
+                    op.handle_operation(&mut serial, &mut tx0, &mut tx1, &mut tx2, &mut tx3, &mut tx4, &mut pwm);
                 }
             }
         }
