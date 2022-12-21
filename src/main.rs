@@ -12,14 +12,14 @@ use panic_halt as _;
 use core::cell::RefCell;
 use core::fmt::Write;
 use cortex_m::interrupt::Mutex;
+use embedded_hal::blocking::i2c::{Write as I2CWrite, WriteRead as I2CWriteRead};
+use fugit::{ExtU32, RateExtU32};
 use heapless::String;
 use pio_proc::pio_file;
-use embedded_hal::blocking::i2c::{Write as I2CWrite, WriteRead as I2CWriteRead};
-use pwm_pca9685::Pca9685;
-use pwm_pca9685 as pca9685;
 use postcard::{from_bytes, to_slice};
-use fugit::{ExtU32, RateExtU32};
-use rotary_encoder_embedded::{standard::StandardMode, RotaryEncoder, Direction};
+use pwm_pca9685 as pca9685;
+use pwm_pca9685::Pca9685;
+use rotary_encoder_embedded::{standard::StandardMode, Direction, RotaryEncoder};
 use serde::{Deserialize, Serialize};
 use usb_device::{class_prelude::*, prelude::*};
 use usbd_serial::SerialPort;
@@ -34,7 +34,7 @@ use bsp::hal::{
     pac,
     pac::interrupt,
     pio::PIOExt,
-    pio::{StateMachineIndex, Tx, SM0, SM1, SM2, SM3},
+    pio::{Tx, SM0, SM1, SM2, SM3},
     sio::Sio,
     timer::Alarm,
     watchdog::Watchdog,
@@ -67,7 +67,14 @@ impl<P: PIOExt> UARTPIOBuilder<P> {
     }
 }
 impl Operation {
-    fn handle_operation<'a, P0: PIOExt, P1: PIOExt, B: usb_device::bus::UsbBus, E: core::fmt::Debug, I: I2CWrite<Error = E> + I2CWriteRead<Error = E>>(
+    fn handle_operation<
+        'a,
+        P0: PIOExt,
+        P1: PIOExt,
+        B: usb_device::bus::UsbBus,
+        E: core::fmt::Debug,
+        I: I2CWrite<Error = E> + I2CWriteRead<Error = E>,
+    >(
         self,
         usb_serial: &mut SerialPort<'a, B>,
         sabertooth0: &mut Tx<(P0, SM0)>,
@@ -114,7 +121,8 @@ impl Operation {
                 });
             }
             Operation::PwmWrite(channel, value) => {
-                pwm.set_channel_on_off(pca9685::Channel::C0, 0, value).unwrap();
+                pwm.set_channel_on_off(pca9685::Channel::C0, 0, value)
+                    .unwrap();
             }
             _ => {
                 // Do nothing
@@ -171,7 +179,8 @@ fn main() -> ! {
 
     let i2c = bsp::hal::I2C::i2c1(
         pac.I2C1,
-        sda_pin, scl_pin,
+        sda_pin,
+        scl_pin,
         400_u32.kHz(),
         &mut pac.RESETS,
         &clocks.peripheral_clock,
@@ -284,7 +293,9 @@ fn main() -> ! {
     let mut encoder_positions = [0; 5];
     cortex_m::interrupt::free(|cs| {
         ENCODERS.borrow(cs).replace(Some(rotary_encoders));
-        ENCODER_POSITIONS.borrow(cs).replace(Some(encoder_positions));
+        ENCODER_POSITIONS
+            .borrow(cs)
+            .replace(Some(encoder_positions));
         alarm.schedule(1111.micros()).unwrap();
         alarm.enable_interrupt();
         ALARM.borrow(cs).replace(Some(alarm));
@@ -307,7 +318,15 @@ fn main() -> ! {
                 }
                 Ok(count) => {
                     let op: Operation = from_bytes(&buf[0..count]).unwrap();
-                    op.handle_operation(&mut serial, &mut tx0, &mut tx1, &mut tx2, &mut tx3, &mut tx4, &mut pwm);
+                    op.handle_operation(
+                        &mut serial,
+                        &mut tx0,
+                        &mut tx1,
+                        &mut tx2,
+                        &mut tx3,
+                        &mut tx4,
+                        &mut pwm,
+                    );
                 }
             }
         }
