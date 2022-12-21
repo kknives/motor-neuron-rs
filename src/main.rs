@@ -9,10 +9,14 @@ use defmt::*;
 use defmt_rtt as _;
 use panic_halt as _;
 
+use core::cell::RefCell;
 use core::fmt::Write;
+use cortex_m::interrupt::Mutex;
 use heapless::String;
 use pio_proc::pio_file;
 use postcard::{from_bytes, to_slice};
+use fugit::{Duration, ExtU32};
+use rotary_encoder_embedded::{standard::StandardMode, RotaryEncoder, Direction};
 use serde::{Deserialize, Serialize};
 use usb_device::{class_prelude::*, prelude::*};
 use usbd_serial::SerialPort;
@@ -22,10 +26,14 @@ use rp_pico as bsp;
 
 use bsp::hal::{
     clocks::{init_clocks_and_plls, Clock},
+    gpio,
+    gpio::pin::{bank0, Pin},
     pac,
+    pac::interrupt,
     pio::PIOExt,
     pio::{StateMachineIndex, Tx, SM0, SM1, SM2, SM3},
     sio::Sio,
+    timer::Alarm,
     watchdog::Watchdog,
 };
 
@@ -98,6 +106,18 @@ impl Operation {
         }
     }
 }
+type EncoderInputPin<P> = gpio::pin::Pin<P, gpio::pin::Input<gpio::pin::PullUp>>;
+// gpio5, gpio8, gpio9, gpio10, gpio11, gpio12, gpio13, gpio14, gpio15, gpio16
+type EncoderTuple = (
+    RotaryEncoder<StandardMode, EncoderInputPin<bank0::Gpio5>, EncoderInputPin<bank0::Gpio8>>,
+    RotaryEncoder<StandardMode, EncoderInputPin<bank0::Gpio9>, EncoderInputPin<bank0::Gpio10>>,
+    RotaryEncoder<StandardMode, EncoderInputPin<bank0::Gpio11>, EncoderInputPin<bank0::Gpio12>>,
+    RotaryEncoder<StandardMode, EncoderInputPin<bank0::Gpio13>, EncoderInputPin<bank0::Gpio14>>,
+    RotaryEncoder<StandardMode, EncoderInputPin<bank0::Gpio15>, EncoderInputPin<bank0::Gpio16>>,
+);
+static ENCODERS: Mutex<RefCell<Option<EncoderTuple>>> = Mutex::new(RefCell::new(None));
+static ENCODER_POSITIONS: Mutex<RefCell<Option<[i8; 5]>>> = Mutex::new(RefCell::new(None));
+static ALARM: Mutex<RefCell<Option<bsp::hal::timer::Alarm0>>> = Mutex::new(RefCell::new(None));
 #[entry]
 fn main() -> ! {
     info!("Program start");
@@ -127,6 +147,26 @@ fn main() -> ! {
         pac.PADS_BANK0,
         sio.gpio_bank0,
         &mut pac.RESETS,
+    );
+
+    // Pins 7, 11, 12, 14, 15, 16, 17, 19, 20, 21 are encoder inputs
+    let pin_d7 = pins.gpio5.into_pull_up_input();
+    let pin_d11 = pins.gpio8.into_pull_up_input();
+    let pin_d12 = pins.gpio9.into_pull_up_input();
+    let pin_d14 = pins.gpio10.into_pull_up_input();
+    let pin_d15 = pins.gpio11.into_pull_up_input();
+    let pin_d16 = pins.gpio12.into_pull_up_input();
+    let pin_d17 = pins.gpio13.into_pull_up_input();
+    let pin_d19 = pins.gpio14.into_pull_up_input();
+    let pin_d20 = pins.gpio15.into_pull_up_input();
+    let pin_d21 = pins.gpio16.into_pull_up_input();
+
+    let mut rotary_encoders = (
+        RotaryEncoder::new(pin_d7, pin_d11).into_standard_mode(),
+        RotaryEncoder::new(pin_d12, pin_d14).into_standard_mode(),
+        RotaryEncoder::new(pin_d15, pin_d16).into_standard_mode(),
+        RotaryEncoder::new(pin_d17, pin_d19).into_standard_mode(),
+        RotaryEncoder::new(pin_d20, pin_d21).into_standard_mode(),
     );
 
     let uart_pins = [0, 1, 2, 3, 4];
@@ -206,8 +246,23 @@ fn main() -> ! {
         .serial_number("001")
         .device_class(2) // from: https://www.usb.org/defined-class-codes
         .build();
-    let timer = bsp::hal::Timer::new(pac.TIMER, &mut pac.RESETS);
-    let mut said_hello = false;
+
+    let mut timer = bsp::hal::Timer::new(pac.TIMER, &mut pac.RESETS);
+    let mut alarm = timer.alarm_0().unwrap();
+    let mut encoder_positions = [0; 5];
+    cortex_m::interrupt::free(|cs| {
+        ENCODERS.borrow(cs).replace(Some(rotary_encoders));
+        ENCODER_POSITIONS.borrow(cs).replace(Some(encoder_positions));
+        alarm.schedule(1111.micros()).unwrap();
+        alarm.enable_interrupt();
+        ALARM.borrow(cs).replace(Some(alarm));
+    });
+
+    #[allow(unsafe_code)]
+    unsafe {
+        pac::NVIC::unmask(pac::Interrupt::TIMER_IRQ_0);
+    }
+
     loop {
         if usb_dev.poll(&mut [&mut serial]) {
             let mut buf = [0u8; 256];
@@ -227,4 +282,70 @@ fn main() -> ! {
     }
 }
 
+#[allow(non_snake_case)]
+#[interrupt]
+fn TIMER_IRQ_0() {
+    cortex_m::interrupt::free(|cs| {
+        let mut alarm = ALARM.borrow(cs).borrow_mut();
+        let mut alarm = alarm.as_mut().unwrap();
+        let mut encoders = ENCODERS.borrow(cs).borrow_mut();
+        let mut encoders = encoders.as_mut().unwrap();
+        let mut encoder_positions = ENCODER_POSITIONS.borrow(cs).borrow_mut();
+        let mut encoder_positions = encoder_positions.as_mut().unwrap();
+
+        encoders.0.update();
+        match encoders.0.direction() {
+            Direction::Clockwise => {
+                encoder_positions[0] += 1;
+            }
+            Direction::Anticlockwise => {
+                encoder_positions[0] -= 1;
+            }
+            Direction::None => {}
+        }
+        encoders.1.update();
+        match encoders.1.direction() {
+            Direction::Clockwise => {
+                encoder_positions[1] += 1;
+            }
+            Direction::Anticlockwise => {
+                encoder_positions[1] -= 1;
+            }
+            Direction::None => {}
+        }
+        encoders.2.update();
+        match encoders.2.direction() {
+            Direction::Clockwise => {
+                encoder_positions[2] += 1;
+            }
+            Direction::Anticlockwise => {
+                encoder_positions[2] -= 1;
+            }
+            Direction::None => {}
+        }
+        encoders.3.update();
+        match encoders.3.direction() {
+            Direction::Clockwise => {
+                encoder_positions[3] += 1;
+            }
+            Direction::Anticlockwise => {
+                encoder_positions[3] -= 1;
+            }
+            Direction::None => {}
+        }
+        encoders.4.update();
+        match encoders.4.direction() {
+            Direction::Clockwise => {
+                encoder_positions[4] += 1;
+            }
+            Direction::Anticlockwise => {
+                encoder_positions[4] -= 1;
+            }
+            Direction::None => {}
+        }
+
+        alarm.clear_interrupt();
+        alarm.schedule(1111.micros()).unwrap();
+    });
+}
 // End of file
