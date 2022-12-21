@@ -9,6 +9,8 @@ use defmt::*;
 use defmt_rtt as _;
 use panic_halt as _;
 
+use serde::{Serialize, Deserialize};
+use postcard::{to_slice, from_bytes};
 use core::fmt::Write;
 use heapless::String;
 use pio_proc::pio_file;
@@ -25,6 +27,15 @@ use bsp::hal::{
     sio::Sio,
     watchdog::Watchdog,
 };
+
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+enum Operation {
+    KeepAlive,
+    SabertoothWrite(u8, u8),
+    SmartelexWrite(u8, [u8; 5]),
+    EncoderRead(u8, u8),
+    PwmWrite(u8, u16),
+}
 
 // Send help please
 struct UARTPIOBuilder<P: PIOExt>(bsp::hal::pio::PIOBuilder<P>);
@@ -165,22 +176,17 @@ fn main() -> ! {
     let timer = bsp::hal::Timer::new(pac.TIMER, &mut pac.RESETS);
     let mut said_hello = false;
     loop {
-        if !said_hello && timer.get_counter().ticks() >= 2_000_000 {
-            said_hello = true;
-            let _ = serial.write(b"Hello, World!\r\n");
+        // if !said_hello && timer.get_counter().ticks() >= 2_000_000 {
+        //     said_hello = true;
+        //     let _ = serial.write(b"Hello, World!\r\n");
 
-            let time = timer.get_counter().ticks();
-            let mut text: String<64> = String::new();
-            writeln!(&mut text, "Current timer ticks: {}", time).unwrap();
+        //     let time = timer.get_counter().ticks();
+        //     let mut text: String<64> = String::new();
+        //     writeln!(&mut text, "Current timer ticks: {}", time).unwrap();
 
-            // This only works reliably because the number of bytes written to
-            // the serial port is smaller than the buffers available to the USB
-            // peripheral. In general, the return value should be handled, so that
-            // bytes not transferred yet don't get lost.
-            let _ = serial.write(text.as_bytes());
-        }
+        // }
         if usb_dev.poll(&mut [&mut serial]) {
-            let mut buf = [0u8; 64];
+            let mut buf = [0u8; 256];
             match serial.read(&mut buf) {
                 Err(_e) => {
                     // Do nothing
@@ -189,30 +195,58 @@ fn main() -> ! {
                     // Do nothing
                 }
                 Ok(count) => {
-                    // Convert to upper case
-                    buf.iter_mut().take(count).for_each(|b| {
-                        b.make_ascii_uppercase();
-                    });
-                    // Send back to the host
-                    let mut wr_ptr = &buf[..count];
-                    while !wr_ptr.is_empty() {
-                        match serial.write(wr_ptr) {
-                            Ok(len) => wr_ptr = &wr_ptr[len..],
-                            // On error, just drop unwritten data.
-                            // One possible error is Err(WouldBlock), meaning the USB
-                            // write buffer is full.
-                            Err(_) => break,
-                        };
+                    let op: Operation = from_bytes(&buf[0..count]).unwrap();
+                    match op {
+                        Operation::SabertoothWrite ( tx_id, value ) => {
+                            match tx_id {
+                                0 => {
+                                    let _ = tx0.write(value.into());
+                                }
+                                1 => {
+                                    let _ = tx1.write(value.into());
+                                }
+                                2 => {
+                                    let _ = tx2.write(value.into());
+                                }
+                                3 => {
+                                    let _ = tx3.write(value.into());
+                                }
+                                4 => {
+                                    let _ = tx4.write(value.into());
+                                }
+                                5 => {
+                                    let _ = tx5.write(value.into());
+                                }
+                                _ => {
+                                    // Do nothing
+                                }
+                            }
+                        }
+                        Operation::SmartelexWrite ( tx_id, value ) => {
+                            match tx_id {
+                                5 => {
+                                    for i in value {
+                                        let _ = tx5.write(i.into());
+                                    }
+                                }
+                                _ => {
+                                    // Do nothing
+                                }
+                            }
+                        }
+                        _ => {
+                            // Do nothing
+                        }
                     }
                 }
             }
         }
-        tx0.write(0x31);
-        tx1.write(0x31);
-        tx2.write(0x31);
-        tx3.write(0x31);
-        tx4.write(0x31);
-        tx5.write(0x31);
+        // tx0.write(0x31);
+        // tx1.write(0x31);
+        // tx2.write(0x31);
+        // tx3.write(0x31);
+        // tx4.write(0x31);
+        // tx5.write(0x31);
         // cortex_m::asm::wfi();
     }
 }
