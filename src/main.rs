@@ -86,14 +86,13 @@ fn main() -> ! {
         &mut pac.RESETS,
     );
 
-    let uart_pins = [0, 1, 2, 3, 4, 5];
+    let uart_pins = [0, 1, 2, 3, 4];
     let _uart_gpios = (
         pins.gpio0.into_mode::<bsp::hal::gpio::FunctionPio0>(),
         pins.gpio1.into_mode::<bsp::hal::gpio::FunctionPio0>(),
         pins.gpio2.into_mode::<bsp::hal::gpio::FunctionPio0>(),
         pins.gpio3.into_mode::<bsp::hal::gpio::FunctionPio0>(),
         pins.gpio4.into_mode::<bsp::hal::gpio::FunctionPio1>(),
-        pins.gpio5.into_mode::<bsp::hal::gpio::FunctionPio1>(),
     );
     // Setup UARTs on first PIO segment
     let pio_program = pio_proc::pio_file!("./src/uart_tx.pio", select_program("uart_tx"));
@@ -143,15 +142,6 @@ fn main() -> ! {
     )
     .build(sm0);
     working_sm.set_pindirs([(uart_pins[4], bsp::hal::pio::PinDir::Output)]);
-    working_sm.start();
-
-    let (mut working_sm, _, mut tx5) = UARTPIOBuilder::setup_pio_uart(
-        clocks.system_clock.freq().to_Hz(),
-        pio1.install(&pio_program.program).unwrap(),
-        uart_pins[5],
-    )
-    .build(sm1);
-    working_sm.set_pindirs([(uart_pins[5], bsp::hal::pio::PinDir::Output)]);
     working_sm.start();
 
     // Setup USB serial
