@@ -166,15 +166,6 @@ fn main() -> ! {
     let timer = bsp::hal::Timer::new(pac.TIMER, &mut pac.RESETS);
     let mut said_hello = false;
     loop {
-        // if !said_hello && timer.get_counter().ticks() >= 2_000_000 {
-        //     said_hello = true;
-        //     let _ = serial.write(b"Hello, World!\r\n");
-
-        //     let time = timer.get_counter().ticks();
-        //     let mut text: String<64> = String::new();
-        //     writeln!(&mut text, "Current timer ticks: {}", time).unwrap();
-
-        // }
         if usb_dev.poll(&mut [&mut serial]) {
             let mut buf = [0u8; 256];
             match serial.read(&mut buf) {
@@ -201,12 +192,6 @@ fn main() -> ! {
                                 3 => {
                                     let _ = tx3.write(value.into());
                                 }
-                                4 => {
-                                    let _ = tx4.write(value.into());
-                                }
-                                5 => {
-                                    let _ = tx5.write(value.into());
-                                }
                                 _ => {
                                     // Do nothing
                                 }
@@ -214,9 +199,9 @@ fn main() -> ! {
                         }
                         Operation::SmartelexWrite ( tx_id, value ) => {
                             match tx_id {
-                                5 => {
+                                4 => {
                                     for i in value {
-                                        let _ = tx5.write(i.into());
+                                        let _ = tx4.write(i.into());
                                     }
                                 }
                                 _ => {
@@ -231,13 +216,6 @@ fn main() -> ! {
                 }
             }
         }
-        // tx0.write(0x31);
-        // tx1.write(0x31);
-        // tx2.write(0x31);
-        // tx3.write(0x31);
-        // tx4.write(0x31);
-        // tx5.write(0x31);
-        // cortex_m::asm::wfi();
     }
 }
 
