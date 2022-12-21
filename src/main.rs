@@ -42,11 +42,10 @@ enum Operation {
     KeepAlive,
     SabertoothWrite(u8, u8),
     SmartelexWrite(u8, [u8; 5]),
-    EncoderRead(u8, u8),
+    EncoderRead,
     PwmWrite(u8, u16),
 }
 
-// Send help please
 struct UARTPIOBuilder<P: PIOExt>(bsp::hal::pio::PIOBuilder<P>);
 impl<P: PIOExt> UARTPIOBuilder<P> {
     fn setup_pio_uart(
@@ -65,8 +64,9 @@ impl<P: PIOExt> UARTPIOBuilder<P> {
     }
 }
 impl Operation {
-    fn handle_operation<P0: PIOExt, P1: PIOExt>(
+    fn handle_operation<'a, P0: PIOExt, P1: PIOExt, B: usb_device::bus::UsbBus>(
         self,
+        usb_serial: &mut SerialPort<'a, B>,
         sabertooth0: &mut Tx<(P0, SM0)>,
         sabertooth1: &mut Tx<(P0, SM1)>,
         sabertooth2: &mut Tx<(P0, SM2)>,
@@ -99,6 +99,15 @@ impl Operation {
                         let _ = smartelex.write(*v as u32);
                     });
                 }
+            }
+            Operation::EncoderRead => {
+                cortex_m::interrupt::free(|cs| {
+                    let mut encoder_positions = ENCODER_POSITIONS.borrow(cs).borrow_mut();
+                    let encoder_positions = encoder_positions.as_mut().unwrap();
+                    encoder_positions.iter().for_each(|v| {
+                        let _ = usb_serial.write(&v.to_le_bytes());
+                    });
+                });
             }
             _ => {
                 // Do nothing
@@ -275,7 +284,7 @@ fn main() -> ! {
                 }
                 Ok(count) => {
                     let op: Operation = from_bytes(&buf[0..count]).unwrap();
-                    op.handle_operation(&mut tx0, &mut tx1, &mut tx2, &mut tx3, &mut tx4);
+                    op.handle_operation(&mut serial, &mut tx0, &mut tx1, &mut tx2, &mut tx3, &mut tx4);
                 }
             }
         }
