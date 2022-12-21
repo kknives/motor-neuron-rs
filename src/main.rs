@@ -9,11 +9,11 @@ use defmt::*;
 use defmt_rtt as _;
 use panic_halt as _;
 
-use serde::{Serialize, Deserialize};
-use postcard::{to_slice, from_bytes};
 use core::fmt::Write;
 use heapless::String;
 use pio_proc::pio_file;
+use postcard::{from_bytes, to_slice};
+use serde::{Deserialize, Serialize};
 use usb_device::{class_prelude::*, prelude::*};
 use usbd_serial::SerialPort;
 // Provide an alias for our BSP so we can switch targets quickly.
@@ -24,6 +24,7 @@ use bsp::hal::{
     clocks::{init_clocks_and_plls, Clock},
     pac,
     pio::PIOExt,
+    pio::{StateMachineIndex, Tx, SM0, SM1, SM2, SM3},
     sio::Sio,
     watchdog::Watchdog,
 };
@@ -53,6 +54,48 @@ impl<P: PIOExt> UARTPIOBuilder<P> {
             .side_set_pin_base(pin)
             .clock_divisor(clock_freq as f32 / (8f32 * 9600f32))
             .buffers(bsp::hal::pio::Buffers::OnlyTx)
+    }
+}
+impl Operation {
+    fn handle_operation<P0: PIOExt, P1: PIOExt>(
+        self,
+        sabertooth0: &mut Tx<(P0, SM0)>,
+        sabertooth1: &mut Tx<(P0, SM1)>,
+        sabertooth2: &mut Tx<(P0, SM2)>,
+        sabertooth3: &mut Tx<(P0, SM3)>,
+        smartelex: &mut Tx<(P1, SM0)>,
+    ) {
+        match self {
+            Operation::SabertoothWrite(tx_id, value) => {
+                match tx_id {
+                    0 => {
+                        let _ = sabertooth0.write(value.into());
+                    }
+                    1 => {
+                        let _ = sabertooth1.write(value.into());
+                    }
+                    2 => {
+                        let _ = sabertooth2.write(value.into());
+                    }
+                    3 => {
+                        let _ = sabertooth3.write(value.into());
+                    }
+                    _ => {
+                        // Do nothing
+                    }
+                }
+            }
+            Operation::SmartelexWrite(tx_id, value) => {
+                if let tx_id = 4 {
+                    value.iter().for_each(|v| {
+                        let _ = smartelex.write(*v as u32);
+                    });
+                }
+            }
+            _ => {
+                // Do nothing
+            }
+        }
     }
 }
 #[entry]
@@ -177,42 +220,7 @@ fn main() -> ! {
                 }
                 Ok(count) => {
                     let op: Operation = from_bytes(&buf[0..count]).unwrap();
-                    match op {
-                        Operation::SabertoothWrite ( tx_id, value ) => {
-                            match tx_id {
-                                0 => {
-                                    let _ = tx0.write(value.into());
-                                }
-                                1 => {
-                                    let _ = tx1.write(value.into());
-                                }
-                                2 => {
-                                    let _ = tx2.write(value.into());
-                                }
-                                3 => {
-                                    let _ = tx3.write(value.into());
-                                }
-                                _ => {
-                                    // Do nothing
-                                }
-                            }
-                        }
-                        Operation::SmartelexWrite ( tx_id, value ) => {
-                            match tx_id {
-                                4 => {
-                                    for i in value {
-                                        let _ = tx4.write(i.into());
-                                    }
-                                }
-                                _ => {
-                                    // Do nothing
-                                }
-                            }
-                        }
-                        _ => {
-                            // Do nothing
-                        }
-                    }
+                    op.handle_operation(&mut tx0, &mut tx1, &mut tx2, &mut tx3, &mut tx4);
                 }
             }
         }
