@@ -104,12 +104,10 @@ impl Operation {
                     }
                 }
             }
-            Operation::SmartelexWrite(tx_id, value) => {
-                if tx_id == 4 {
-                    value.iter().for_each(|v| {
-                        let _ = smartelex.write(*v as u32);
-                    });
-                }
+            Operation::SmartelexWrite(4, value) => {
+                value.iter().for_each(|v| {
+                    let _ = smartelex.write(*v as u32);
+                });
             }
             Operation::EncoderRead => {
                 cortex_m::interrupt::free(|cs| {
