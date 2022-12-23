@@ -68,7 +68,6 @@ impl<P: PIOExt> UARTPIOBuilder<P> {
 }
 impl Operation {
     fn handle_operation<
-        'a,
         P0: PIOExt,
         P1: PIOExt,
         B: usb_device::bus::UsbBus,
@@ -76,7 +75,7 @@ impl Operation {
         I: I2CWrite<Error = E> + I2CWriteRead<Error = E>,
     >(
         self,
-        usb_serial: &mut SerialPort<'a, B>,
+        usb_serial: &mut SerialPort<'_, B>,
         sabertooth0: &mut Tx<(P0, SM0)>,
         sabertooth1: &mut Tx<(P0, SM1)>,
         sabertooth2: &mut Tx<(P0, SM2)>,
