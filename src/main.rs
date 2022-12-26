@@ -20,6 +20,8 @@ use postcard::{from_bytes, to_slice};
 use pwm_pca9685 as pca9685;
 use pwm_pca9685::Pca9685;
 use rotary_encoder_embedded::{standard::StandardMode, Direction, RotaryEncoder};
+use embedded_hal::digital::v2::ToggleableOutputPin;
+use embedded_hal::digital::v2::OutputPin;
 use serde::{Deserialize, Serialize};
 use usb_device::{class_prelude::*, prelude::*};
 use usbd_serial::SerialPort;
@@ -128,6 +130,8 @@ impl Operation {
     }
 }
 type EncoderInputPin<P> = gpio::pin::Pin<P, gpio::pin::Input<gpio::pin::PullUp>>;
+type LedPin = gpio::pin::Pin<bank0::Gpio25, gpio::pin::Output<gpio::pin::PushPull>>;
+type IntPin = gpio::pin::Pin<bank0::Gpio26, gpio::pin::Output<gpio::pin::PushPull>>;
 // gpio5, gpio8, gpio9, gpio10, gpio11, gpio12, gpio13, gpio14, gpio15, gpio16
 type EncoderTuple = (
     RotaryEncoder<StandardMode, EncoderInputPin<bank0::Gpio5>, EncoderInputPin<bank0::Gpio8>>,
@@ -138,6 +142,8 @@ type EncoderTuple = (
 );
 static ENCODERS: Mutex<RefCell<Option<EncoderTuple>>> = Mutex::new(RefCell::new(None));
 static ENCODER_POSITIONS: Mutex<RefCell<Option<[i8; 5]>>> = Mutex::new(RefCell::new(None));
+static LED: Mutex<RefCell<Option<LedPin>>> = Mutex::new(RefCell::new(None));
+static INT: Mutex<RefCell<Option<IntPin>>> = Mutex::new(RefCell::new(None));
 static ALARM: Mutex<RefCell<Option<bsp::hal::timer::Alarm0>>> = Mutex::new(RefCell::new(None));
 #[entry]
 fn main() -> ! {
@@ -169,6 +175,10 @@ fn main() -> ! {
         sio.gpio_bank0,
         &mut pac.RESETS,
     );
+    
+    let mut led = pins.led.into_push_pull_output();
+    let mut int = pins.gpio26.into_push_pull_output();
+    led.set_high().unwrap();
 
     // gpio6 and gpio7 are i2c pins
     let sda_pin = pins.gpio6.into_mode::<gpio::FunctionI2C>();
@@ -288,8 +298,15 @@ fn main() -> ! {
     let mut timer = bsp::hal::Timer::new(pac.TIMER, &mut pac.RESETS);
     let mut alarm = timer.alarm_0().unwrap();
     let mut encoder_positions = [0; 5];
+    // led.set_low().unwrap();
     cortex_m::interrupt::free(|cs| {
+        INT.borrow(cs).replace(Some(int));
         ENCODERS.borrow(cs).replace(Some(rotary_encoders));
+        LED.borrow(cs).replace(Some(led));
+
+        let mut led = LED.borrow(cs).borrow_mut();
+        let led = led.as_mut().unwrap();
+        led.set_high().unwrap();
         ENCODER_POSITIONS
             .borrow(cs)
             .replace(Some(encoder_positions));
@@ -304,6 +321,19 @@ fn main() -> ! {
     }
 
     loop {
+        cortex_m::interrupt::free(|cs| {
+            let mut alarm = ALARM.borrow(cs).borrow_mut();
+            let alarm = alarm.as_mut().unwrap();
+
+            let mut int = INT.borrow(cs).borrow_mut();
+            let int = int.as_mut().unwrap();
+
+            if alarm.finished() {
+                int.toggle().unwrap();
+                alarm.schedule(1111.micros()).unwrap();
+            alarm.enable_interrupt();
+            }
+        });
         if usb_dev.poll(&mut [&mut serial]) {
             let mut buf = [0u8; 256];
             match serial.read(&mut buf) {
@@ -340,6 +370,9 @@ fn TIMER_IRQ_0() {
         let mut encoders = encoders.as_mut().unwrap();
         let mut encoder_positions = ENCODER_POSITIONS.borrow(cs).borrow_mut();
         let mut encoder_positions = encoder_positions.as_mut().unwrap();
+        // let mut led = LED.borrow(cs).borrow_mut();
+        // let led = led.as_mut().unwrap();
+        // led.toggle().unwrap();
 
         encoders.0.update();
         match encoders.0.direction() {
@@ -391,9 +424,7 @@ fn TIMER_IRQ_0() {
             }
             Direction::None => {}
         }
-
         alarm.clear_interrupt();
-        alarm.schedule(1111.micros()).unwrap();
     });
 }
 // End of file
