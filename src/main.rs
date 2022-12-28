@@ -313,7 +313,7 @@ fn main() -> ! {
         ENCODER_POSITIONS
             .borrow(cs)
             .replace(Some(encoder_positions));
-        alarm.schedule(1111.micros()).unwrap();
+        alarm.schedule(50.micros()).unwrap();
         alarm.enable_interrupt();
         ALARM.borrow(cs).replace(Some(alarm));
     });
@@ -333,8 +333,8 @@ fn main() -> ! {
 
             if alarm.finished() {
                 int.toggle().unwrap();
-                alarm.schedule(1111.micros()).unwrap();
-            alarm.enable_interrupt();
+                alarm.schedule(50.micros()).unwrap();
+                alarm.enable_interrupt();
             }
         });
         if usb_dev.poll(&mut [&mut serial]) {
