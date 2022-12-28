@@ -13,6 +13,8 @@ use core::cell::RefCell;
 use core::fmt::Write;
 use cortex_m::interrupt::Mutex;
 use embedded_hal::blocking::i2c::{Write as I2CWrite, WriteRead as I2CWriteRead};
+use embedded_hal::digital::v2::OutputPin;
+use embedded_hal::digital::v2::ToggleableOutputPin;
 use fugit::{ExtU32, RateExtU32};
 use heapless::String;
 use pio_proc::pio_file;
@@ -20,8 +22,6 @@ use postcard::{from_bytes, to_slice};
 use pwm_pca9685 as pca9685;
 use pwm_pca9685::Pca9685;
 use rotary_encoder_embedded::{standard::StandardMode, Direction, RotaryEncoder};
-use embedded_hal::digital::v2::ToggleableOutputPin;
-use embedded_hal::digital::v2::OutputPin;
 use serde::{Deserialize, Serialize};
 use usb_device::{class_prelude::*, prelude::*};
 use usbd_serial::SerialPort;
@@ -50,7 +50,10 @@ enum Operation {
     EncoderRead,
     PwmWrite(u8, u16),
 }
-
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+struct EncoderValues {
+    values: [i32; 5],
+}
 struct UARTPIOBuilder<P: PIOExt>(bsp::hal::pio::PIOBuilder<P>);
 impl<P: PIOExt> UARTPIOBuilder<P> {
     fn setup_pio_uart(
@@ -114,9 +117,9 @@ impl Operation {
                 cortex_m::interrupt::free(|cs| {
                     let mut encoder_positions = ENCODER_POSITIONS.borrow(cs).borrow_mut();
                     let encoder_positions = encoder_positions.as_mut().unwrap();
-                    encoder_positions.iter().for_each(|v| {
-                        let _ = usb_serial.write(&v.to_le_bytes());
-                    });
+                    let mut tx_encoded = [0u8; 64];
+                    let coded = to_slice(encoder_positions, &mut tx_encoded).unwrap();
+                    let _ = usb_serial.write(coded);
                 });
             }
             Operation::PwmWrite(channel, value) => {
@@ -141,7 +144,7 @@ type EncoderTuple = (
     RotaryEncoder<StandardMode, EncoderInputPin<bank0::Gpio15>, EncoderInputPin<bank0::Gpio16>>,
 );
 static ENCODERS: Mutex<RefCell<Option<EncoderTuple>>> = Mutex::new(RefCell::new(None));
-static ENCODER_POSITIONS: Mutex<RefCell<Option<[i8; 5]>>> = Mutex::new(RefCell::new(None));
+static ENCODER_POSITIONS: Mutex<RefCell<Option<EncoderValues>>> = Mutex::new(RefCell::new(None));
 static LED: Mutex<RefCell<Option<LedPin>>> = Mutex::new(RefCell::new(None));
 static INT: Mutex<RefCell<Option<IntPin>>> = Mutex::new(RefCell::new(None));
 static ALARM: Mutex<RefCell<Option<bsp::hal::timer::Alarm0>>> = Mutex::new(RefCell::new(None));
@@ -175,7 +178,7 @@ fn main() -> ! {
         sio.gpio_bank0,
         &mut pac.RESETS,
     );
-    
+
     let mut led = pins.led.into_push_pull_output();
     let mut int = pins.gpio26.into_push_pull_output();
     led.set_high().unwrap();
@@ -297,7 +300,7 @@ fn main() -> ! {
 
     let mut timer = bsp::hal::Timer::new(pac.TIMER, &mut pac.RESETS);
     let mut alarm = timer.alarm_0().unwrap();
-    let mut encoder_positions = [0; 5];
+    let mut encoder_positions = EncoderValues { values: [0; 5] };
     // led.set_low().unwrap();
     cortex_m::interrupt::free(|cs| {
         INT.borrow(cs).replace(Some(int));
@@ -377,50 +380,50 @@ fn TIMER_IRQ_0() {
         encoders.0.update();
         match encoders.0.direction() {
             Direction::Clockwise => {
-                encoder_positions[0] += 1;
+                encoder_positions.values[0] += 1;
             }
             Direction::Anticlockwise => {
-                encoder_positions[0] -= 1;
+                encoder_positions.values[0] -= 1;
             }
             Direction::None => {}
         }
         encoders.1.update();
         match encoders.1.direction() {
             Direction::Clockwise => {
-                encoder_positions[1] += 1;
+                encoder_positions.values[1] += 1;
             }
             Direction::Anticlockwise => {
-                encoder_positions[1] -= 1;
+                encoder_positions.values[1] -= 1;
             }
             Direction::None => {}
         }
         encoders.2.update();
         match encoders.2.direction() {
             Direction::Clockwise => {
-                encoder_positions[2] += 1;
+                encoder_positions.values[2] += 1;
             }
             Direction::Anticlockwise => {
-                encoder_positions[2] -= 1;
+                encoder_positions.values[2] -= 1;
             }
             Direction::None => {}
         }
         encoders.3.update();
         match encoders.3.direction() {
             Direction::Clockwise => {
-                encoder_positions[3] += 1;
+                encoder_positions.values[3] += 1;
             }
             Direction::Anticlockwise => {
-                encoder_positions[3] -= 1;
+                encoder_positions.values[3] -= 1;
             }
             Direction::None => {}
         }
         encoders.4.update();
         match encoders.4.direction() {
             Direction::Clockwise => {
-                encoder_positions[4] += 1;
+                encoder_positions.values[4] += 1;
             }
             Direction::Anticlockwise => {
-                encoder_positions[4] -= 1;
+                encoder_positions.values[4] -= 1;
             }
             Direction::None => {}
         }
