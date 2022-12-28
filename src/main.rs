@@ -50,10 +50,6 @@ enum Operation {
     EncoderRead,
     PwmWrite(u8, u16),
 }
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
-struct EncoderValues {
-    values: [i32; 5],
-}
 struct UARTPIOBuilder<P: PIOExt>(bsp::hal::pio::PIOBuilder<P>);
 impl<P: PIOExt> UARTPIOBuilder<P> {
     fn setup_pio_uart(
@@ -144,7 +140,7 @@ type EncoderTuple = (
     RotaryEncoder<StandardMode, EncoderInputPin<bank0::Gpio15>, EncoderInputPin<bank0::Gpio16>>,
 );
 static ENCODERS: Mutex<RefCell<Option<EncoderTuple>>> = Mutex::new(RefCell::new(None));
-static ENCODER_POSITIONS: Mutex<RefCell<Option<EncoderValues>>> = Mutex::new(RefCell::new(None));
+static ENCODER_POSITIONS: Mutex<RefCell<Option<[i32; 5]>>> = Mutex::new(RefCell::new(None));
 static LED: Mutex<RefCell<Option<LedPin>>> = Mutex::new(RefCell::new(None));
 static INT: Mutex<RefCell<Option<IntPin>>> = Mutex::new(RefCell::new(None));
 static ALARM: Mutex<RefCell<Option<bsp::hal::timer::Alarm0>>> = Mutex::new(RefCell::new(None));
@@ -300,7 +296,7 @@ fn main() -> ! {
 
     let mut timer = bsp::hal::Timer::new(pac.TIMER, &mut pac.RESETS);
     let mut alarm = timer.alarm_0().unwrap();
-    let mut encoder_positions = EncoderValues { values: [0; 5] };
+    let encoder_positions = [0; 5];
     // led.set_low().unwrap();
     cortex_m::interrupt::free(|cs| {
         INT.borrow(cs).replace(Some(int));
@@ -380,50 +376,50 @@ fn TIMER_IRQ_0() {
         encoders.0.update();
         match encoders.0.direction() {
             Direction::Clockwise => {
-                encoder_positions.values[0] += 1;
+                encoder_positions[0] += 1;
             }
             Direction::Anticlockwise => {
-                encoder_positions.values[0] -= 1;
+                encoder_positions[0] -= 1;
             }
             Direction::None => {}
         }
         encoders.1.update();
         match encoders.1.direction() {
             Direction::Clockwise => {
-                encoder_positions.values[1] += 1;
+                encoder_positions[1] += 1;
             }
             Direction::Anticlockwise => {
-                encoder_positions.values[1] -= 1;
+                encoder_positions[1] -= 1;
             }
             Direction::None => {}
         }
         encoders.2.update();
         match encoders.2.direction() {
             Direction::Clockwise => {
-                encoder_positions.values[2] += 1;
+                encoder_positions[2] += 1;
             }
             Direction::Anticlockwise => {
-                encoder_positions.values[2] -= 1;
+                encoder_positions[2] -= 1;
             }
             Direction::None => {}
         }
         encoders.3.update();
         match encoders.3.direction() {
             Direction::Clockwise => {
-                encoder_positions.values[3] += 1;
+                encoder_positions[3] += 1;
             }
             Direction::Anticlockwise => {
-                encoder_positions.values[3] -= 1;
+                encoder_positions[3] -= 1;
             }
             Direction::None => {}
         }
         encoders.4.update();
         match encoders.4.direction() {
             Direction::Clockwise => {
-                encoder_positions.values[4] += 1;
+                encoder_positions[4] += 1;
             }
             Direction::Anticlockwise => {
-                encoder_positions.values[4] -= 1;
+                encoder_positions[4] -= 1;
             }
             Direction::None => {}
         }
