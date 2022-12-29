@@ -13,6 +13,7 @@ defmt-rtt = "0.3"
 panic-halt = "0.2.0"
 
 # We're using a Pico by default on this template
+git-version = "0.3.5"
 usb-device = "0.2.9"
 usbd-serial = "0.1.1"
 usbd-hid = "0.5.1"

@@ -25,6 +25,8 @@ use rotary_encoder_embedded::{standard::StandardMode, Direction, RotaryEncoder};
 use serde::{Deserialize, Serialize};
 use usb_device::{class_prelude::*, prelude::*};
 use usbd_serial::SerialPort;
+use git_version::git_version;
+const GIT_VERSION: &str = git_version!(args = ["--always"]);
 // Provide an alias for our BSP so we can switch targets quickly.
 // Uncomment the BSP you included in Cargo.toml, the rest of the code does not need to change.
 use rp_pico as bsp;
@@ -146,7 +148,7 @@ static INT: Mutex<RefCell<Option<IntPin>>> = Mutex::new(RefCell::new(None));
 static ALARM: Mutex<RefCell<Option<bsp::hal::timer::Alarm0>>> = Mutex::new(RefCell::new(None));
 #[entry]
 fn main() -> ! {
-    info!("Program start");
+    info!("Program start, version {}", GIT_VERSION);
     let mut pac = pac::Peripherals::take().unwrap();
     let core = pac::CorePeripherals::take().unwrap();
     let mut watchdog = Watchdog::new(pac.WATCHDOG);
