@@ -179,7 +179,6 @@ fn main() -> ! {
 
     let mut led = pins.led.into_push_pull_output();
     let mut int = pins.gpio26.into_push_pull_output();
-    led.set_high().unwrap();
 
     // gpio6 and gpio7 are i2c pins
     let sda_pin = pins.gpio6.into_mode::<gpio::FunctionI2C>();
@@ -194,9 +193,10 @@ fn main() -> ! {
         &clocks.peripheral_clock,
     );
     let mut pwm = Pca9685::new(i2c, pca9685::Address::default()).unwrap();
-    // pwm.set_prescale(100).unwrap();
-    // pwm.enable().unwrap();
-    // pwm.set_channel_full_off(pca9685::Channel::C0).unwrap();
+    pwm.set_prescale(100).unwrap();
+    pwm.enable().unwrap();
+    pwm.set_channel_full_off(pca9685::Channel::C0).unwrap();
+    led.set_high().unwrap();
 
     // Pins 7, 11, 12, 14, 15, 16, 17, 19, 20, 21 are encoder inputs
     let pin_d7 = pins.gpio5.into_pull_up_input();
