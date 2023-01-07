@@ -140,6 +140,7 @@ type EncoderTuple = (
     RotaryEncoder<StandardMode, EncoderInputPin<bank0::Gpio11>, EncoderInputPin<bank0::Gpio12>>,
     RotaryEncoder<StandardMode, EncoderInputPin<bank0::Gpio13>, EncoderInputPin<bank0::Gpio14>>,
     RotaryEncoder<StandardMode, EncoderInputPin<bank0::Gpio15>, EncoderInputPin<bank0::Gpio16>>,
+    RotaryEncoder<StandardMode, EncoderInputPin<bank0::Gpio19>, EncoderInputPin<bank0::Gpio20>>,
 );
 static ENCODERS: Mutex<RefCell<Option<EncoderTuple>>> = Mutex::new(RefCell::new(None));
 static ENCODER_POSITIONS: Mutex<RefCell<Option<[i32; 5]>>> = Mutex::new(RefCell::new(None));
@@ -209,6 +210,8 @@ fn main() -> ! {
     let pin_d19 = pins.gpio14.into_pull_up_input();
     let pin_d20 = pins.gpio15.into_pull_up_input();
     let pin_d21 = pins.gpio16.into_pull_up_input();
+    let pin_d25 = pins.gpio19.into_pull_up_input();
+    let pin_d26 = pins.gpio20.into_pull_up_input();
 
     let mut rotary_encoders = (
         RotaryEncoder::new(pin_d7, pin_d11).into_standard_mode(),
@@ -216,6 +219,7 @@ fn main() -> ! {
         RotaryEncoder::new(pin_d15, pin_d16).into_standard_mode(),
         RotaryEncoder::new(pin_d17, pin_d19).into_standard_mode(),
         RotaryEncoder::new(pin_d20, pin_d21).into_standard_mode(),
+        RotaryEncoder::new(pin_d25, pin_d26).into_standard_mode(),
     );
 
     let uart_pins = [0, 1, 2, 3, 4];
@@ -422,6 +426,16 @@ fn TIMER_IRQ_0() {
             }
             Direction::Anticlockwise => {
                 encoder_positions[4] -= 1;
+            }
+            Direction::None => {}
+        }
+        encoders.5.update();
+        match encoders.5.direction() {
+            Direction::Clockwise => {
+                encoder_positions[5] += 1;
+            }
+            Direction::Anticlockwise => {
+                encoder_positions[5] -= 1;
             }
             Direction::None => {}
         }
