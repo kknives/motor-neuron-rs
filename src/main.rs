@@ -120,10 +120,17 @@ impl Operation {
                     let _ = usb_serial.write(coded);
                 });
             }
-            Operation::PwmWrite(channel, value) => {
-                pwm.set_channel_on_off(pca9685::Channel::C0, 0, value)
-                    .unwrap();
-            }
+            Operation::PwmWrite(channel, value) => match channel {
+                0 => {
+                    pwm.set_channel_on_off(pca9685::Channel::C0, 0, value)
+                        .unwrap();
+                }
+                1 => {
+                    pwm.set_channel_on_off(pca9685::Channel::C1, 0, value)
+                        .unwrap();
+                }
+                _ => {}
+            },
             _ => {
                 // Do nothing
             }
