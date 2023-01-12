@@ -16,6 +16,7 @@ use embedded_hal::blocking::i2c::{Write as I2CWrite, WriteRead as I2CWriteRead};
 use embedded_hal::digital::v2::OutputPin;
 use embedded_hal::digital::v2::ToggleableOutputPin;
 use fugit::{ExtU32, RateExtU32};
+use git_version::git_version;
 use heapless::String;
 use pio_proc::pio_file;
 use postcard::{from_bytes, to_slice};
@@ -25,7 +26,6 @@ use rotary_encoder_embedded::{standard::StandardMode, Direction, RotaryEncoder};
 use serde::{Deserialize, Serialize};
 use usb_device::{class_prelude::*, prelude::*};
 use usbd_serial::SerialPort;
-use git_version::git_version;
 const GIT_VERSION: &str = git_version!(args = ["--always"]);
 // Provide an alias for our BSP so we can switch targets quickly.
 // Uncomment the BSP you included in Cargo.toml, the rest of the code does not need to change.
