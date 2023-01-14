@@ -129,6 +129,30 @@ impl Operation {
                     pwm.set_channel_on_off(pca9685::Channel::C1, 0, value)
                         .unwrap();
                 }
+                2 => {
+                    pwm.set_channel_on_off(pca9685::Channel::C2, 0, value)
+                        .unwrap();
+                }
+                3 => {
+                    pwm.set_channel_on_off(pca9685::Channel::C3, 0, value)
+                        .unwrap();
+                }
+                4 => {
+                    pwm.set_channel_on_off(pca9685::Channel::C4, 0, value)
+                        .unwrap();
+                }
+                5 => {
+                    pwm.set_channel_on_off(pca9685::Channel::C5, 0, value)
+                        .unwrap();
+                }
+                6 => {
+                    pwm.set_channel_on_off(pca9685::Channel::C6, 0, value)
+                        .unwrap();
+                }
+                7 => {
+                    pwm.set_channel_on_off(pca9685::Channel::C7, 0, value)
+                        .unwrap();
+                }
                 _ => {}
             },
             _ => {
@@ -203,7 +227,7 @@ fn main() -> ! {
     let mut pwm = Pca9685::new(i2c, pca9685::Address::default()).unwrap();
     pwm.set_prescale(100).unwrap();
     pwm.enable().unwrap();
-    pwm.set_channel_full_off(pca9685::Channel::C0).unwrap();
+    pwm.set_all_on_off(&[0; 16], &[0; 16]).unwrap();
     led.set_high().unwrap();
 
     // Pins 7, 11, 12, 14, 15, 16, 17, 19, 20, 21 are encoder inputs
