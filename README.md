@@ -12,7 +12,7 @@ If the I2C module is disconnected, this means the Motor Neuron fails to configur
 Pico with a version with I2C disabled. Check the releases for the same.**
 
 Using the excellent type system, HAL and PAC crates in the Rust ecosystem and community, the Motor Neuron was completed without the use
-of a debugger. **This means, most of the bugs were eliminated at compile time.**
+of a debugger. **Most of the bugs were eliminated at compile time.**
 <!-- TABLE OF CONTENTS -->
 <details open="open">
   
