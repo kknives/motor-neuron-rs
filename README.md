@@ -1,16 +1,18 @@
-# Project template for rp2040-hal
+# R23 Motor Neuron
 
-This template is intended as a starting point for developing your own firmware based on the rp2040-hal.
+The Raspberry Pi Pico based Motor/Encoder (and other stuff too) Peripheral Access Device for R23.
 
-It includes all of the `knurling-rs` tooling as showcased in https://github.com/knurling-rs/app-template (`defmt`, `defmt-rtt`, `panic-probe`, `flip-link`) to make development as easy as possible.
+The Motor Neuron manages access to the following peripherals:
+- 5 Serial Motor Drivers
+- 6 Rotary Encoders
+- Upto 16 servos through I2C using external PCA9685 module
 
-`probe-run` is configured as the default runner, so you can start your program as easy as
-```sh
-cargo run --release
-```
+**Note: The LED on Pico turns on only if the configuration of all peripherals succeeds. This includes the I2C module.
+If the I2C module is disconnected, this means the Motor Neuron fails to configure and panics. To avoid this, flash the
+Pico with a version with I2C disabled. Check the releases for the same.**
 
-If you aren't using a debugger (or want to use cargo-embed/probe-rs-debugger), check out [alternative runners](#alternative-runners) for other options
-
+Using the excellent type system, HAL and PAC crates in the Rust ecosystem and community, the Motor Neuron was completed without the use
+of a debugger. **This means, most of the bugs were eliminated at compile time.**
 <!-- TABLE OF CONTENTS -->
 <details open="open">
   
@@ -20,11 +22,7 @@ If you aren't using a debugger (or want to use cargo-embed/probe-rs-debugger), c
     <li><a href="#installation-of-development-dependencies">Installation of development dependencies</a></li>
     <li><a href="#running">Running</a></li>
     <li><a href="#alternative-runners">Alternative runners</a></li>
-    <li><a href="#roadmap">Roadmap</a></li>
-    <li><a href="#contributing">Contributing</a></li>
-    <li><a href="#code-of-conduct">Code of conduct</a></li>
     <li><a href="#license">License</a></li>
-    <li><a href="#contact">Contact</a></li>
   </ol>
 </details>
 
@@ -220,40 +218,6 @@ Some of the options for your `runner` are listed below:
 
 </details>
 
-<!-- ROADMAP -->
-
-## Roadmap
-
-NOTE These packages are under active development. As such, it is likely to
-remain volatile until a 1.0.0 release.
-
-See the [open issues](https://github.com/rp-rs/rp2040-project-template/issues) for a list of
-proposed features (and known issues).
-
-## Contributing
-
-Contributions are what make the open source community such an amazing place to be learn, inspire, and create. Any contributions you make are **greatly appreciated**.
-
-The steps are:
-
-1. Fork the Project by clicking the 'Fork' button at the top of the page.
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Make some changes to the code or documentation.
-4. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-5. Push to the Feature Branch (`git push origin feature/AmazingFeature`)
-6. Create a [New Pull Request](https://github.com/rp-rs/rp-hal/pulls)
-7. An admin will review the Pull Request and discuss any changes that may be required.
-8. Once everyone is happy, the Pull Request can be merged by an admin, and your work is part of our project!
-
-## Code of Conduct
-
-Contribution to this crate is organized under the terms of the [Rust Code of
-Conduct][CoC], and the maintainer of this crate, the [rp-rs team], promises
-to intervene to uphold that code of conduct.
-
-[CoC]: CODE_OF_CONDUCT.md
-[rp-rs team]: https://github.com/orgs/rp-rs/teams/rp-rs
-
 ## License
 
 The contents of this repository are dual-licensed under the _MIT OR Apache
@@ -263,8 +227,3 @@ information on each specific licence.
 
 Any submissions to this project (e.g. as Pull Requests) must be made available
 under these terms.
-
-## Contact
-
-Raise an issue: [https://github.com/rp-rs/rp2040-project-template/issues](https://github.com/rp-rs/rp2040-project-template/issues)
-Chat to us on Matrix: [#rp-rs:matrix.org](https://matrix.to/#/#rp-rs:matrix.org)
