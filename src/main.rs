@@ -48,6 +48,7 @@ enum Operation {
 }
 struct UARTPIOBuilder<P: PIOExt>(bsp::hal::pio::PIOBuilder<P>);
 impl<P: PIOExt> UARTPIOBuilder<P> {
+    #[allow(deprecated)]
     fn setup_pio_uart(
         clock_freq: u32,
         installed: bsp::hal::pio::InstalledProgram<P>,
