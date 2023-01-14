@@ -7,15 +7,12 @@ use defmt_rtt as _;
 use panic_halt as _;
 
 use core::cell::RefCell;
-use core::fmt::Write;
 use cortex_m::interrupt::Mutex;
 use embedded_hal::blocking::i2c::{Write as I2CWrite, WriteRead as I2CWriteRead};
 use embedded_hal::digital::v2::OutputPin;
 use embedded_hal::digital::v2::ToggleableOutputPin;
 use fugit::{ExtU32, RateExtU32};
 use git_version::git_version;
-use heapless::String;
-use pio_proc::pio_file;
 use postcard::{from_bytes, to_slice};
 use pwm_pca9685 as pca9685;
 use pwm_pca9685::Pca9685;
@@ -31,7 +28,7 @@ use rp_pico as bsp;
 use bsp::hal::{
     clocks::{init_clocks_and_plls, Clock},
     gpio,
-    gpio::pin::{bank0, Pin},
+    gpio::pin::bank0,
     pac,
     pac::interrupt,
     pio::PIOExt,
@@ -179,7 +176,7 @@ static ALARM: Mutex<RefCell<Option<bsp::hal::timer::Alarm0>>> = Mutex::new(RefCe
 fn main() -> ! {
     info!("Program start, version {}", GIT_VERSION);
     let mut pac = pac::Peripherals::take().unwrap();
-    let core = pac::CorePeripherals::take().unwrap();
+    let _core = pac::CorePeripherals::take().unwrap();
     let mut watchdog = Watchdog::new(pac.WATCHDOG);
     let sio = Sio::new(pac.SIO);
 
@@ -197,8 +194,6 @@ fn main() -> ! {
     .ok()
     .unwrap();
 
-    let mut delay = cortex_m::delay::Delay::new(core.SYST, clocks.system_clock.freq().to_Hz());
-
     let pins = bsp::Pins::new(
         pac.IO_BANK0,
         pac.PADS_BANK0,
@@ -207,7 +202,7 @@ fn main() -> ! {
     );
 
     let mut led = pins.led.into_push_pull_output();
-    let mut int = pins.gpio26.into_push_pull_output();
+    let int = pins.gpio26.into_push_pull_output();
 
     // gpio6 and gpio7 are i2c pins
     let sda_pin = pins.gpio6.into_mode::<gpio::FunctionI2C>();
@@ -241,7 +236,7 @@ fn main() -> ! {
     let pin_d25 = pins.gpio19.into_pull_up_input();
     let pin_d26 = pins.gpio20.into_pull_up_input();
 
-    let mut rotary_encoders = (
+    let rotary_encoders = (
         RotaryEncoder::new(pin_d7, pin_d11).into_standard_mode(),
         RotaryEncoder::new(pin_d12, pin_d14).into_standard_mode(),
         RotaryEncoder::new(pin_d15, pin_d16).into_standard_mode(),
@@ -298,7 +293,7 @@ fn main() -> ! {
     working_sm.start();
 
     // Setup UART on the other PIO block, only using 2 state machines this time
-    let (mut pio1, sm0, sm1, _, _) = pac.PIO1.split(&mut pac.RESETS);
+    let (mut pio1, sm0, _sm1, _, _) = pac.PIO1.split(&mut pac.RESETS);
     let (mut working_sm, _, mut tx4) = UARTPIOBuilder::setup_pio_uart(
         clocks.system_clock.freq().to_Hz(),
         pio1.install(&pio_program.program).unwrap(),
@@ -398,11 +393,11 @@ fn main() -> ! {
 fn TIMER_IRQ_0() {
     cortex_m::interrupt::free(|cs| {
         let mut alarm = ALARM.borrow(cs).borrow_mut();
-        let mut alarm = alarm.as_mut().unwrap();
+        let alarm = alarm.as_mut().unwrap();
         let mut encoders = ENCODERS.borrow(cs).borrow_mut();
-        let mut encoders = encoders.as_mut().unwrap();
+        let encoders = encoders.as_mut().unwrap();
         let mut encoder_positions = ENCODER_POSITIONS.borrow(cs).borrow_mut();
-        let mut encoder_positions = encoder_positions.as_mut().unwrap();
+        let encoder_positions = encoder_positions.as_mut().unwrap();
         // let mut led = LED.borrow(cs).borrow_mut();
         // let led = led.as_mut().unwrap();
         // led.toggle().unwrap();
