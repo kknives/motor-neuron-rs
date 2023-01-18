@@ -45,6 +45,7 @@ enum Operation {
     SmartelexWrite(u8, [u8; 5]),
     EncoderRead,
     PwmWrite(u8, u16),
+    VersionReport,
 }
 struct UARTPIOBuilder<P: PIOExt>(bsp::hal::pio::PIOBuilder<P>);
 impl<P: PIOExt> UARTPIOBuilder<P> {
@@ -82,6 +83,9 @@ impl Operation {
         pwm: &mut Pca9685<I>,
     ) {
         match self {
+            Operation::VersionReport => {
+                usb_serial.write(GIT_VERSION.as_bytes()).unwrap();
+            }
             Operation::SabertoothWrite(tx_id, value) => {
                 match tx_id {
                     0 => {
