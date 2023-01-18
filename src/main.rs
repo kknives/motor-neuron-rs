@@ -46,6 +46,7 @@ enum Operation {
     EncoderRead,
     PwmWrite(u8, u16),
     VersionReport,
+    Reset,
 }
 struct UARTPIOBuilder<P: PIOExt>(bsp::hal::pio::PIOBuilder<P>);
 impl<P: PIOExt> UARTPIOBuilder<P> {
@@ -83,6 +84,12 @@ impl Operation {
         pwm: &mut Pca9685<I>,
     ) {
         match self {
+            Operation::Reset => {
+                // Reset the MCU, effectively erasing any encoder values
+                // The encoder values and the time since last message are the
+                // only state the MCU holds
+                cortex_m::peripheral::SCB::sys_reset();
+            }
             Operation::VersionReport => {
                 usb_serial.write(GIT_VERSION.as_bytes()).unwrap();
             }
