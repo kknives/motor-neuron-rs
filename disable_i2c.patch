@@ -1,0 +1,17 @@
+diff --git a/src/main.rs b/src/main.rs
+index 4cc75e3..1d53b49 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -229,9 +229,9 @@ fn main() -> ! {
+         &clocks.peripheral_clock,
+     );
+     let mut pwm = Pca9685::new(i2c, pca9685::Address::default()).unwrap();
+-    pwm.set_prescale(100).unwrap();
+-    pwm.enable().unwrap();
+-    pwm.set_all_on_off(&[0; 16], &[0; 16]).unwrap();
++    // pwm.set_prescale(100).unwrap();
++    // pwm.enable().unwrap();
++    // pwm.set_all_on_off(&[0; 16], &[0; 16]).unwrap();
+     led.set_high().unwrap();
+ 
+     // Pins 7, 11, 12, 14, 15, 16, 17, 19, 20, 21 are encoder inputs
