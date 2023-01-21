@@ -8,14 +8,11 @@ use panic_halt as _;
 
 use core::cell::RefCell;
 use cortex_m::interrupt::Mutex;
-use embedded_hal::blocking::i2c::{Write as I2CWrite, WriteRead as I2CWriteRead};
 use embedded_hal::digital::v2::OutputPin;
 use embedded_hal::digital::v2::ToggleableOutputPin;
-use fugit::{ExtU32, RateExtU32};
+use fugit::ExtU32;
 use git_version::git_version;
 use postcard::{from_bytes, to_slice};
-use pwm_pca9685 as pca9685;
-use pwm_pca9685::Pca9685;
 use rotary_encoder_embedded::{standard::StandardMode, Direction, RotaryEncoder};
 use serde::{Deserialize, Serialize};
 use usb_device::{class_prelude::*, prelude::*};
@@ -67,11 +64,7 @@ impl<P: PIOExt> UARTPIOBuilder<P> {
     }
 }
 impl Operation {
-    fn handle_operation<
-        P0: PIOExt,
-        P1: PIOExt,
-        B: usb_device::bus::UsbBus,
-    >(
+    fn handle_operation<P0: PIOExt, P1: PIOExt, B: usb_device::bus::UsbBus>(
         self,
         usb_serial: &mut SerialPort<'_, B>,
         sabertooth0: &mut Tx<(P0, SM0)>,
@@ -83,7 +76,7 @@ impl Operation {
         match self {
             Operation::EncoderReset => {
                 // Set all encoder values to 0
-                cortex_m::interrupt::free(|cs|{
+                cortex_m::interrupt::free(|cs| {
                     let mut encoder_positions = ENCODER_POSITIONS.borrow(cs).borrow_mut();
                     let encoder_positions = encoder_positions.as_mut().unwrap();
                     encoder_positions.map(|_| 0);
@@ -339,7 +332,7 @@ fn main() -> ! {
                         &mut tx1,
                         &mut tx2,
                         &mut tx3,
-                        &mut tx4
+                        &mut tx4,
                     );
                 }
             }
