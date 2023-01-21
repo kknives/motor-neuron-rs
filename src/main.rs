@@ -83,7 +83,9 @@ impl Operation {
                 });
             }
             Operation::VersionReport => {
-                usb_serial.write(GIT_VERSION.as_bytes()).unwrap();
+                let mut buf = [0u8; 64];
+                let version = to_slice(&GIT_VERSION, &mut buf).unwrap();
+                usb_serial.write(version).unwrap();
             }
             Operation::SabertoothWrite(tx_id, value) => {
                 match tx_id {
