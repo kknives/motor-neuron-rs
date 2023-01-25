@@ -8,11 +8,14 @@ use panic_halt as _;
 
 use core::cell::RefCell;
 use cortex_m::interrupt::Mutex;
+use embedded_hal::blocking::i2c::{Write as I2CWrite, WriteRead as I2CWriteRead};
 use embedded_hal::digital::v2::OutputPin;
 use embedded_hal::digital::v2::ToggleableOutputPin;
-use fugit::ExtU32;
+use fugit::{ExtU32, RateExtU32};
 use git_version::git_version;
 use postcard::{from_bytes, to_slice};
+use pwm_pca9685 as pca9685;
+use pwm_pca9685::Pca9685;
 use rotary_encoder_embedded::{standard::StandardMode, Direction, RotaryEncoder};
 use serde::{Deserialize, Serialize};
 use usb_device::{class_prelude::*, prelude::*};
@@ -64,7 +67,13 @@ impl<P: PIOExt> UARTPIOBuilder<P> {
     }
 }
 impl Operation {
-    fn handle_operation<P0: PIOExt, P1: PIOExt, B: usb_device::bus::UsbBus>(
+    fn handle_operation<
+        P0: PIOExt,
+        P1: PIOExt,
+        B: usb_device::bus::UsbBus,
+        E: core::fmt::Debug,
+        I: I2CWrite<Error = E> + I2CWriteRead<Error = E>,
+    >(
         self,
         usb_serial: &mut SerialPort<'_, B>,
         sabertooth0: &mut Tx<(P0, SM0)>,
@@ -72,6 +81,7 @@ impl Operation {
         sabertooth2: &mut Tx<(P0, SM2)>,
         sabertooth3: &mut Tx<(P0, SM3)>,
         smartelex: &mut Tx<(P1, SM0)>,
+        pwm: &mut Pca9685<I>,
     ) {
         match self {
             Operation::EncoderReset => {
@@ -120,6 +130,41 @@ impl Operation {
                     let _ = usb_serial.write(coded);
                 });
             }
+            Operation::PwmWrite(channel, value) => match channel {
+                0 => {
+                    pwm.set_channel_on_off(pca9685::Channel::C0, 0, value)
+                        .unwrap();
+                }
+                1 => {
+                    pwm.set_channel_on_off(pca9685::Channel::C1, 0, value)
+                        .unwrap();
+                }
+                2 => {
+                    pwm.set_channel_on_off(pca9685::Channel::C2, 0, value)
+                        .unwrap();
+                }
+                3 => {
+                    pwm.set_channel_on_off(pca9685::Channel::C3, 0, value)
+                        .unwrap();
+                }
+                4 => {
+                    pwm.set_channel_on_off(pca9685::Channel::C4, 0, value)
+                        .unwrap();
+                }
+                5 => {
+                    pwm.set_channel_on_off(pca9685::Channel::C5, 0, value)
+                        .unwrap();
+                }
+                6 => {
+                    pwm.set_channel_on_off(pca9685::Channel::C6, 0, value)
+                        .unwrap();
+                }
+                7 => {
+                    pwm.set_channel_on_off(pca9685::Channel::C7, 0, value)
+                        .unwrap();
+                }
+                _ => {}
+            },
             _ => {
                 // Do nothing
             }
@@ -175,6 +220,22 @@ fn main() -> ! {
     let mut led = pins.led.into_push_pull_output();
     let int = pins.gpio26.into_push_pull_output();
 
+    // gpio6 and gpio7 are i2c pins
+    let sda_pin = pins.gpio6.into_mode::<gpio::FunctionI2C>();
+    let scl_pin = pins.gpio7.into_mode::<gpio::FunctionI2C>();
+
+    let i2c = bsp::hal::I2C::i2c1(
+        pac.I2C1,
+        sda_pin,
+        scl_pin,
+        400.kHz(),
+        &mut pac.RESETS,
+        &clocks.peripheral_clock,
+    );
+    let mut pwm = Pca9685::new(i2c, pca9685::Address::default()).unwrap();
+    pwm.set_prescale(100).unwrap();
+    pwm.enable().unwrap();
+    pwm.set_all_on_off(&[0; 16], &[0; 16]).unwrap();
     led.set_high().unwrap();
 
     // Pins 7, 11, 12, 14, 15, 16, 17, 19, 20, 21 are encoder inputs
@@ -335,6 +396,7 @@ fn main() -> ! {
                         &mut tx2,
                         &mut tx3,
                         &mut tx4,
+                        &mut pwm,
                     );
                 }
             }
