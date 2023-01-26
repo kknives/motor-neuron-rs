@@ -217,7 +217,7 @@ type EncoderTuple = (
     RotaryEncoder<StandardMode, EncoderInputPin<bank0::Gpio19>, EncoderInputPin<bank0::Gpio20>>,
 );
 static ENCODERS: Mutex<RefCell<Option<EncoderTuple>>> = Mutex::new(RefCell::new(None));
-static ENCODER_POSITIONS: Mutex<RefCell<Option<[i32; 5]>>> = Mutex::new(RefCell::new(None));
+static ENCODER_POSITIONS: Mutex<RefCell<Option<[i32; 6]>>> = Mutex::new(RefCell::new(None));
 static LED: Mutex<RefCell<Option<LedPin>>> = Mutex::new(RefCell::new(None));
 // static INT: Mutex<RefCell<Option<IntPin>>> = Mutex::new(RefCell::new(None));
 static ALARM: Mutex<RefCell<Option<bsp::hal::timer::Alarm0>>> = Mutex::new(RefCell::new(None));
@@ -364,7 +364,7 @@ fn main() -> ! {
 
     let mut timer = bsp::hal::Timer::new(pac.TIMER, &mut pac.RESETS);
     let mut alarm = timer.alarm_0().unwrap();
-    let encoder_positions = [0; 5];
+    let encoder_positions = [0; 6];
     // led.set_low().unwrap();
     cortex_m::interrupt::free(|cs| {
         // INT.borrow(cs).replace(Some(int));
