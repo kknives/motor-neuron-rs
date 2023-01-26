@@ -90,7 +90,7 @@ impl Operation {
                 cortex_m::interrupt::free(|cs| {
                     let mut encoder_positions = ENCODER_POSITIONS.borrow(cs).borrow_mut();
                     let encoder_positions = encoder_positions.as_mut().unwrap();
-                    encoder_positions.map(|_| 0);
+                    encoder_positions.fill(0);
                 });
             }
             Operation::VersionReport => {
