@@ -8,6 +8,7 @@ use panic_reset as _;
 
 use core::cell::RefCell;
 use cortex_m::interrupt::Mutex;
+use embedded_hal::adc::OneShot;
 use embedded_hal::blocking::i2c::{Write as I2CWrite, WriteRead as I2CWriteRead};
 use embedded_hal::digital::v2::OutputPin;
 use embedded_hal::digital::v2::ToggleableOutputPin;
@@ -36,13 +37,14 @@ use bsp::hal::{
     sio::Sio,
     timer::Alarm,
     watchdog::Watchdog,
+    Adc,
 };
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 enum Operation {
     KeepAlive,
     SabertoothWrite(u8, u8),
-    SmartelexWrite(u8, [u8; 5]),
+    SensorRead,
     EncoderRead,
     PwmWrite(u8, u16),
     VersionReport,
@@ -69,7 +71,6 @@ impl<P: PIOExt> UARTPIOBuilder<P> {
 impl Operation {
     fn handle_operation<
         P0: PIOExt,
-        P1: PIOExt,
         B: usb_device::bus::UsbBus,
         E: core::fmt::Debug,
         I: I2CWrite<Error = E> + I2CWriteRead<Error = E>,
@@ -80,7 +81,7 @@ impl Operation {
         sabertooth1: &mut Tx<(P0, SM1)>,
         sabertooth2: &mut Tx<(P0, SM2)>,
         sabertooth3: &mut Tx<(P0, SM3)>,
-        smartelex: &mut Tx<(P1, SM0)>,
+        adc_value: u16,
         pwm: &mut Pca9685<I>,
     ) {
         match self {
@@ -116,10 +117,10 @@ impl Operation {
                     }
                 }
             }
-            Operation::SmartelexWrite(4, value) => {
-                value.iter().for_each(|v| {
-                    let _ = smartelex.write(*v as u32);
-                });
+            Operation::SensorRead => {
+                let mut buf = [0u8; 64];
+                let sensor_value = to_slice(&adc_value, &mut buf).unwrap();
+                let _ = usb_serial.write(sensor_value).unwrap();
             }
             Operation::EncoderRead => {
                 cortex_m::interrupt::free(|cs| {
@@ -205,7 +206,7 @@ impl Operation {
 }
 type EncoderInputPin<P> = gpio::pin::Pin<P, gpio::pin::Input<gpio::pin::PullUp>>;
 type LedPin = gpio::pin::Pin<bank0::Gpio25, gpio::pin::Output<gpio::pin::PushPull>>;
-type IntPin = gpio::pin::Pin<bank0::Gpio26, gpio::pin::Output<gpio::pin::PushPull>>;
+// type IntPin = gpio::pin::Pin<bank0::Gpio26, gpio::pin::Output<gpio::pin::PushPull>>;
 // gpio5, gpio8, gpio9, gpio10, gpio11, gpio12, gpio13, gpio14, gpio15, gpio16
 type EncoderTuple = (
     RotaryEncoder<StandardMode, EncoderInputPin<bank0::Gpio5>, EncoderInputPin<bank0::Gpio8>>,
@@ -218,7 +219,7 @@ type EncoderTuple = (
 static ENCODERS: Mutex<RefCell<Option<EncoderTuple>>> = Mutex::new(RefCell::new(None));
 static ENCODER_POSITIONS: Mutex<RefCell<Option<[i32; 5]>>> = Mutex::new(RefCell::new(None));
 static LED: Mutex<RefCell<Option<LedPin>>> = Mutex::new(RefCell::new(None));
-static INT: Mutex<RefCell<Option<IntPin>>> = Mutex::new(RefCell::new(None));
+// static INT: Mutex<RefCell<Option<IntPin>>> = Mutex::new(RefCell::new(None));
 static ALARM: Mutex<RefCell<Option<bsp::hal::timer::Alarm0>>> = Mutex::new(RefCell::new(None));
 #[entry]
 fn main() -> ! {
@@ -250,7 +251,7 @@ fn main() -> ! {
     );
 
     let mut led = pins.led.into_push_pull_output();
-    let int = pins.gpio26.into_push_pull_output();
+    //     let int = pins.gpio26.into_push_pull_output();
 
     // gpio6 and gpio7 are i2c pins
     let sda_pin = pins.gpio6.into_mode::<gpio::FunctionI2C>();
@@ -293,13 +294,12 @@ fn main() -> ! {
         RotaryEncoder::new(pin_d25, pin_d26).into_standard_mode(),
     );
 
-    let uart_pins = [0, 1, 2, 3, 4];
+    let uart_pins = [0, 1, 2, 3];
     let _uart_gpios = (
         pins.gpio0.into_mode::<bsp::hal::gpio::FunctionPio0>(),
         pins.gpio1.into_mode::<bsp::hal::gpio::FunctionPio0>(),
         pins.gpio2.into_mode::<bsp::hal::gpio::FunctionPio0>(),
         pins.gpio3.into_mode::<bsp::hal::gpio::FunctionPio0>(),
-        pins.gpio4.into_mode::<bsp::hal::gpio::FunctionPio1>(),
     );
     // Setup UARTs on first PIO segment
     let pio_program = pio_proc::pio_file!("./src/uart_tx.pio", select_program("uart_tx"));
@@ -340,17 +340,8 @@ fn main() -> ! {
     working_sm.set_pindirs([(uart_pins[3], bsp::hal::pio::PinDir::Output)]);
     working_sm.start();
 
-    // Setup UART on the other PIO block, only using 2 state machines this time
-    let (mut pio1, sm0, _sm1, _, _) = pac.PIO1.split(&mut pac.RESETS);
-    let (mut working_sm, _, mut tx4) = UARTPIOBuilder::setup_pio_uart(
-        clocks.system_clock.freq().to_Hz(),
-        pio1.install(&pio_program.program).unwrap(),
-        uart_pins[4],
-    )
-    .build(sm0);
-    working_sm.set_pindirs([(uart_pins[4], bsp::hal::pio::PinDir::Output)]);
-    working_sm.start();
-
+    let mut adc = Adc::new(pac.ADC, &mut pac.RESETS);
+    let mut adc_pin = pins.gpio26.into_floating_input();
     // Setup USB serial
     let usb_bus = UsbBusAllocator::new(bsp::hal::usb::UsbBus::new(
         pac.USBCTRL_REGS,
@@ -376,7 +367,7 @@ fn main() -> ! {
     let encoder_positions = [0; 5];
     // led.set_low().unwrap();
     cortex_m::interrupt::free(|cs| {
-        INT.borrow(cs).replace(Some(int));
+        // INT.borrow(cs).replace(Some(int));
         ENCODERS.borrow(cs).replace(Some(rotary_encoders));
         LED.borrow(cs).replace(Some(led));
 
@@ -401,11 +392,11 @@ fn main() -> ! {
             let mut alarm = ALARM.borrow(cs).borrow_mut();
             let alarm = alarm.as_mut().unwrap();
 
-            let mut int = INT.borrow(cs).borrow_mut();
-            let int = int.as_mut().unwrap();
+            // let mut int = INT.borrow(cs).borrow_mut();
+            // let int = int.as_mut().unwrap();
 
             if alarm.finished() {
-                int.toggle().unwrap();
+                // int.toggle().unwrap();
                 alarm.schedule(50.micros()).unwrap();
                 alarm.enable_interrupt();
             }
@@ -427,7 +418,7 @@ fn main() -> ! {
                         &mut tx1,
                         &mut tx2,
                         &mut tx3,
-                        &mut tx4,
+                        adc.read(&mut adc_pin).unwrap(),
                         &mut pwm,
                     );
                 }
