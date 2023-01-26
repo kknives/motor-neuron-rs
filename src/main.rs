@@ -4,7 +4,7 @@
 use bsp::entry;
 use defmt::*;
 use defmt_rtt as _;
-use panic_halt as _;
+use panic_reset as _;
 
 use core::cell::RefCell;
 use cortex_m::interrupt::Mutex;
