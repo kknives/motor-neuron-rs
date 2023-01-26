@@ -163,6 +163,38 @@ impl Operation {
                     pwm.set_channel_on_off(pca9685::Channel::C7, 0, value)
                         .unwrap();
                 }
+                8 => {
+                    pwm.set_channel_on_off(pca9685::Channel::C8, 0, value)
+                        .unwrap();
+                }
+                9 => {
+                    pwm.set_channel_on_off(pca9685::Channel::C9, 0, value)
+                        .unwrap();
+                }
+                10 => {
+                    pwm.set_channel_on_off(pca9685::Channel::C10, 0, value)
+                        .unwrap();
+                }
+                11 => {
+                    pwm.set_channel_on_off(pca9685::Channel::C11, 0, value)
+                        .unwrap();
+                }
+                12 => {
+                    pwm.set_channel_on_off(pca9685::Channel::C12, 0, value)
+                        .unwrap();
+                }
+                13 => {
+                    pwm.set_channel_on_off(pca9685::Channel::C13, 0, value)
+                        .unwrap();
+                }
+                14 => {
+                    pwm.set_channel_on_off(pca9685::Channel::C14, 0, value)
+                        .unwrap();
+                }
+                15 => {
+                    pwm.set_channel_on_off(pca9685::Channel::C15, 0, value)
+                        .unwrap();
+                }
                 _ => {}
             },
             _ => {
