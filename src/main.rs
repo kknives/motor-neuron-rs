@@ -46,7 +46,7 @@ enum Operation {
     SabertoothWrite(u8, u8),
     SensorRead,
     EncoderRead,
-    PwmWrite(u8, u16),
+    PwmStartEndWrite(u8, u16, u16),
     VersionReport,
     EncoderReset,
 }
@@ -131,69 +131,69 @@ impl Operation {
                     let _ = usb_serial.write(coded);
                 });
             }
-            Operation::PwmWrite(channel, value) => match channel {
+            Operation::PwmStartEndWrite(channel, start, end) => match channel {
                 0 => {
-                    pwm.set_channel_on_off(pca9685::Channel::C0, 0, value)
+                    pwm.set_channel_on_off(pca9685::Channel::C0, start, end)
                         .unwrap();
                 }
                 1 => {
-                    pwm.set_channel_on_off(pca9685::Channel::C1, 0, value)
+                    pwm.set_channel_on_off(pca9685::Channel::C1, start, end)
                         .unwrap();
                 }
                 2 => {
-                    pwm.set_channel_on_off(pca9685::Channel::C2, 0, value)
+                    pwm.set_channel_on_off(pca9685::Channel::C2, start, end)
                         .unwrap();
                 }
                 3 => {
-                    pwm.set_channel_on_off(pca9685::Channel::C3, 0, value)
+                    pwm.set_channel_on_off(pca9685::Channel::C3, start, end)
                         .unwrap();
                 }
                 4 => {
-                    pwm.set_channel_on_off(pca9685::Channel::C4, 0, value)
+                    pwm.set_channel_on_off(pca9685::Channel::C4, start, end)
                         .unwrap();
                 }
                 5 => {
-                    pwm.set_channel_on_off(pca9685::Channel::C5, 0, value)
+                    pwm.set_channel_on_off(pca9685::Channel::C5, start, end)
                         .unwrap();
                 }
                 6 => {
-                    pwm.set_channel_on_off(pca9685::Channel::C6, 0, value)
+                    pwm.set_channel_on_off(pca9685::Channel::C6, start, end)
                         .unwrap();
                 }
                 7 => {
-                    pwm.set_channel_on_off(pca9685::Channel::C7, 0, value)
+                    pwm.set_channel_on_off(pca9685::Channel::C7, start, end)
                         .unwrap();
                 }
                 8 => {
-                    pwm.set_channel_on_off(pca9685::Channel::C8, 0, value)
+                    pwm.set_channel_on_off(pca9685::Channel::C8, start, end)
                         .unwrap();
                 }
                 9 => {
-                    pwm.set_channel_on_off(pca9685::Channel::C9, 0, value)
+                    pwm.set_channel_on_off(pca9685::Channel::C9, start, end)
                         .unwrap();
                 }
                 10 => {
-                    pwm.set_channel_on_off(pca9685::Channel::C10, 0, value)
+                    pwm.set_channel_on_off(pca9685::Channel::C10, start, end)
                         .unwrap();
                 }
                 11 => {
-                    pwm.set_channel_on_off(pca9685::Channel::C11, 0, value)
+                    pwm.set_channel_on_off(pca9685::Channel::C11, start, end)
                         .unwrap();
                 }
                 12 => {
-                    pwm.set_channel_on_off(pca9685::Channel::C12, 0, value)
+                    pwm.set_channel_on_off(pca9685::Channel::C12, start, end)
                         .unwrap();
                 }
                 13 => {
-                    pwm.set_channel_on_off(pca9685::Channel::C13, 0, value)
+                    pwm.set_channel_on_off(pca9685::Channel::C13, start, end)
                         .unwrap();
                 }
                 14 => {
-                    pwm.set_channel_on_off(pca9685::Channel::C14, 0, value)
+                    pwm.set_channel_on_off(pca9685::Channel::C14, start, end)
                         .unwrap();
                 }
                 15 => {
-                    pwm.set_channel_on_off(pca9685::Channel::C15, 0, value)
+                    pwm.set_channel_on_off(pca9685::Channel::C15, start, end)
                         .unwrap();
                 }
                 _ => {}
